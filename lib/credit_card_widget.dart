@@ -2,13 +2,7 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-import 'credit_card_animation.dart';
-import 'credit_card_background.dart';
-import 'credit_card_brand.dart';
-import 'custom_card_type_icon.dart';
-import 'glassmorphism_config.dart';
-
-const Map<CardType, String> CardTypeIconAsset = <CardType, String>{
+const Map<CardType, String> CardTypeIconAsset = {
   CardType.visa: 'icons/visa.png',
   CardType.americanExpress: 'icons/amex.png',
   CardType.mastercard: 'icons/mastercard.png',
@@ -16,69 +10,54 @@ const Map<CardType, String> CardTypeIconAsset = <CardType, String>{
 };
 
 class CreditCardWidget extends StatefulWidget {
-  const CreditCardWidget(
-      {Key? key,
-      required this.cardNumber,
-      required this.expiryDate,
-      required this.cardHolderName,
-      required this.cvvCode,
-      required this.showBackView,
-      this.animationDuration = const Duration(milliseconds: 500),
-      this.height,
-      this.width,
-      this.textStyle,
-      this.cardBgColor = const Color(0xff1b447b),
-      this.obscureCardNumber = true,
-      this.obscureCardCvv = true,
-      this.labelCardHolder = 'CARD HOLDER',
-      this.labelExpiredDate = 'MM/YY',
-      this.cardType,
-      this.isHolderNameVisible = false,
-      this.backgroundImage,
-      this.glassmorphismConfig,
-      this.isChipVisible = true,
-      this.isSwipeGestureEnabled = true,
-      this.customCardTypeIcons = const <CustomCardTypeIcon>[],
-      required this.onCreditCardWidgetChange})
-      : super(key: key);
+  const CreditCardWidget({
+    Key key,
+    @required this.cardNumber,
+    @required this.expiryDate,
+    @required this.cardHolderName,
+    @required this.cvvCode,
+    @required this.showBackView,
+    this.animationDuration = const Duration(milliseconds: 500),
+    this.height,
+    this.width,
+    this.textStyle,
+    this.cardBgColor = const Color(0xff1b447b),
+    this.obscureCardNumber = true,
+    this.obscureCardCvv = true,
+    this.labelCardHolder = 'CARD HOLDER',
+    this.labelExpiredDate = 'MM/YY',
+    this.cardType,
+  })  : assert(cardNumber != null),
+        assert(showBackView != null),
+        super(key: key);
 
   final String cardNumber;
   final String expiryDate;
   final String cardHolderName;
   final String cvvCode;
-  final TextStyle? textStyle;
+  final TextStyle textStyle;
   final Color cardBgColor;
   final bool showBackView;
   final Duration animationDuration;
-  final double? height;
-  final double? width;
+  final double height;
+  final double width;
   final bool obscureCardNumber;
   final bool obscureCardCvv;
-  final void Function(CreditCardBrand) onCreditCardWidgetChange;
-  final bool isHolderNameVisible;
-  final String? backgroundImage;
-  final bool isChipVisible;
-  final Glassmorphism? glassmorphismConfig;
-  final bool isSwipeGestureEnabled;
 
   final String labelCardHolder;
   final String labelExpiredDate;
 
-  final CardType? cardType;
-  final List<CustomCardTypeIcon> customCardTypeIcons;
+  final CardType cardType;
 
   @override
   _CreditCardWidgetState createState() => _CreditCardWidgetState();
 }
 
-class _CreditCardWidgetState extends State<CreditCardWidget>
-    with SingleTickerProviderStateMixin {
-  late AnimationController controller;
-  late Animation<double> _frontRotation;
-  late Animation<double> _backRotation;
-  late Gradient backgroundGradientColor;
-  late bool isFrontVisible = true;
-  late bool isGestureUpdate = false;
+class _CreditCardWidgetState extends State<CreditCardWidget> with SingleTickerProviderStateMixin {
+  AnimationController controller;
+  Animation<double> _frontRotation;
+  Animation<double> _backRotation;
+  Gradient backgroundGradientColor;
 
   bool isAmex = false;
 
@@ -92,11 +71,6 @@ class _CreditCardWidgetState extends State<CreditCardWidget>
       vsync: this,
     );
 
-    _gradientSetup();
-    _updateRotations(false);
-  }
-
-  void _gradientSetup() {
     backgroundGradientColor = LinearGradient(
       // Where the linear gradient begins and ends
       begin: Alignment.topRight,
@@ -110,6 +84,33 @@ class _CreditCardWidgetState extends State<CreditCardWidget>
         widget.cardBgColor.withOpacity(0.86),
       ],
     );
+
+    ///Initialize the Front to back rotation tween sequence.
+    _frontRotation = TweenSequence<double>(
+      <TweenSequenceItem<double>>[
+        TweenSequenceItem<double>(
+          tween: Tween<double>(begin: 0.0, end: pi / 2).chain(CurveTween(curve: Curves.easeIn)),
+          weight: 50.0,
+        ),
+        TweenSequenceItem<double>(
+          tween: ConstantTween<double>(pi / 2),
+          weight: 50.0,
+        ),
+      ],
+    ).animate(controller);
+
+    _backRotation = TweenSequence<double>(
+      <TweenSequenceItem<double>>[
+        TweenSequenceItem<double>(
+          tween: ConstantTween<double>(pi / 2),
+          weight: 50.0,
+        ),
+        TweenSequenceItem<double>(
+          tween: Tween<double>(begin: -pi / 2, end: 0.0).chain(CurveTween(curve: Curves.easeOut)),
+          weight: 50.0,
+        ),
+      ],
+    ).animate(controller);
   }
 
   @override
@@ -120,241 +121,66 @@ class _CreditCardWidgetState extends State<CreditCardWidget>
 
   @override
   Widget build(BuildContext context) {
+    final double height = MediaQuery.of(context).size.height;
+    final double width = MediaQuery.of(context).size.width;
+    final Orientation orientation = MediaQuery.of(context).orientation;
+
     ///
     /// If uer adds CVV then toggle the card from front to back..
     /// controller forward starts animation and shows back layout.
     /// controller reverse starts animation and shows front layout.
     ///
-    if (!isGestureUpdate) {
-      _updateRotations(false);
-      if (widget.showBackView) {
-        controller.forward();
-      } else {
-        controller.reverse();
-      }
+    if (widget.showBackView) {
+      controller.forward();
     } else {
-      isGestureUpdate = false;
+      controller.reverse();
     }
-
-    final CardType? cardType = widget.cardType != null
-        ? widget.cardType
-        : detectCCType(widget.cardNumber);
-    widget.onCreditCardWidgetChange(CreditCardBrand(cardType));
 
     return Stack(
       children: <Widget>[
-        _cardGesture(
-          child: AnimationCard(
-            animation: _frontRotation,
-            child: _buildFrontContainer(),
-          ),
+        AnimationCard(
+          animation: _frontRotation,
+          child: buildFrontContainer(width, height, context, orientation),
         ),
-        _cardGesture(
-          child: AnimationCard(
-            animation: _backRotation,
-            child: _buildBackContainer(),
-          ),
+        AnimationCard(
+          animation: _backRotation,
+          child: buildBackContainer(width, height, context, orientation),
         ),
       ],
-    );
-  }
-
-  void _leftRotation() {
-    _toggleSide(false);
-  }
-
-  void _rightRotation() {
-    _toggleSide(true);
-  }
-
-  void _toggleSide(bool isRightTap) {
-    _updateRotations(!isRightTap);
-    if (isFrontVisible) {
-      controller.forward();
-      isFrontVisible = false;
-    } else {
-      controller.reverse();
-      isFrontVisible = true;
-    }
-  }
-
-  void _updateRotations(bool isRightSwipe) {
-    setState(() {
-      final bool rotateToLeft =
-          (isFrontVisible && !isRightSwipe) || !isFrontVisible && isRightSwipe;
-
-      ///Initialize the Front to back rotation tween sequence.
-      _frontRotation = TweenSequence<double>(
-        <TweenSequenceItem<double>>[
-          TweenSequenceItem<double>(
-            tween: Tween<double>(
-                    begin: 0.0, end: rotateToLeft ? (pi / 2) : (-pi / 2))
-                .chain(CurveTween(curve: Curves.linear)),
-            weight: 50.0,
-          ),
-          TweenSequenceItem<double>(
-            tween: ConstantTween<double>(rotateToLeft ? (-pi / 2) : (pi / 2)),
-            weight: 50.0,
-          ),
-        ],
-      ).animate(controller);
-
-      ///Initialize the Back to Front rotation tween sequence.
-      _backRotation = TweenSequence<double>(
-        <TweenSequenceItem<double>>[
-          TweenSequenceItem<double>(
-            tween: ConstantTween<double>(rotateToLeft ? (pi / 2) : (-pi / 2)),
-            weight: 50.0,
-          ),
-          TweenSequenceItem<double>(
-            tween: Tween<double>(
-                    begin: rotateToLeft ? (-pi / 2) : (pi / 2), end: 0.0)
-                .chain(
-              CurveTween(curve: Curves.linear),
-            ),
-            weight: 50.0,
-          ),
-        ],
-      ).animate(controller);
-    });
-  }
-
-  ///
-  /// Builds a front container containing
-  /// Card number, Exp. year and Card holder name
-  ///
-  Widget _buildFrontContainer() {
-    final TextStyle defaultTextStyle =
-        Theme.of(context).textTheme.headline6!.merge(
-              const TextStyle(
-                color: Colors.white,
-                fontFamily: 'halter',
-                fontSize: 16,
-                package: 'flutter_credit_card',
-              ),
-            );
-
-    final String number = widget.obscureCardNumber
-        ? widget.cardNumber.replaceAll(RegExp(r'(?<=.{4})\d(?=.{4})'), '*')
-        : widget.cardNumber;
-    return CardBackground(
-      backgroundImage: widget.backgroundImage,
-      backgroundGradientColor: backgroundGradientColor,
-      glassmorphismConfig: widget.glassmorphismConfig,
-      height: widget.height,
-      width: widget.width,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: <Widget>[
-          Expanded(
-            flex: widget.isChipVisible ? 2 : 0,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: <Widget>[
-                if (widget.isChipVisible)
-                  Padding(
-                    padding: const EdgeInsets.only(left: 16),
-                    child: Image.asset(
-                      'icons/chip.png',
-                      package: 'flutter_credit_card',
-                      scale: 1,
-                    ),
-                  ),
-                const Spacer(),
-                Align(
-                  alignment: Alignment.topRight,
-                  child: Padding(
-                    padding: const EdgeInsets.only(left: 16, right: 16, top: 8),
-                    child: widget.cardType != null
-                        ? getCardTypeImage(widget.cardType)
-                        : getCardTypeIcon(widget.cardNumber),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(
-            height: 10,
-          ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.only(left: 16),
-              child: Text(
-                widget.cardNumber.isEmpty ? 'XXXX XXXX XXXX XXXX' : number,
-                style: widget.textStyle ?? defaultTextStyle,
-              ),
-            ),
-          ),
-          Expanded(
-            flex: 1,
-            child: Padding(
-              padding: const EdgeInsets.only(left: 16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(
-                    'VALID\nTHRU',
-                    style: widget.textStyle ??
-                        defaultTextStyle.copyWith(fontSize: 7),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    widget.expiryDate.isEmpty
-                        ? widget.labelExpiredDate
-                        : widget.expiryDate,
-                    style: widget.textStyle ?? defaultTextStyle,
-                  ),
-                ],
-              ),
-            ),
-          ),
-          Visibility(
-            visible: widget.isHolderNameVisible,
-            child: Expanded(
-              child: Padding(
-                padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-                child: Text(
-                  widget.cardHolderName.isEmpty
-                      ? widget.labelCardHolder
-                      : widget.cardHolderName,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: widget.textStyle ?? defaultTextStyle,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 
   ///
   /// Builds a back container containing cvv
   ///
-  Widget _buildBackContainer() {
+  Container buildBackContainer(
+      double width,
+      double height,
+      BuildContext context,
+      Orientation orientation,
+      ) {
     final TextStyle defaultTextStyle =
-        Theme.of(context).textTheme.headline6!.merge(
-              const TextStyle(
-                color: Colors.black,
-                fontFamily: 'halter',
-                fontSize: 16,
-                package: 'flutter_credit_card',
-              ),
-            );
+    Theme.of(context).textTheme.headline6.merge(
+      TextStyle(
+        color: Colors.black,
+        fontFamily: 'halter',
+        fontSize: 16,
+        package: 'flutter_credit_card',
+      ),
+    );
 
     final String cvv = widget.obscureCardCvv
         ? widget.cvvCode.replaceAll(RegExp(r'\d'), '*')
         : widget.cvvCode;
 
-    return CardBackground(
-      backgroundImage: widget.backgroundImage,
-      backgroundGradientColor: backgroundGradientColor,
-      glassmorphismConfig: widget.glassmorphismConfig,
-      height: widget.height,
-      width: widget.width,
+    return Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        gradient: backgroundGradientColor,
+      ),
+      margin: const EdgeInsets.all(16),
+      width: widget.width ?? width,
+      height: widget.height ?? (orientation == Orientation.portrait ? height / 4 : height / 2),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -389,9 +215,7 @@ class _CreditCardWidgetState extends State<CreditCardWidget>
                         padding: const EdgeInsets.all(5),
                         child: Text(
                           widget.cvvCode.isEmpty
-                              ? isAmex
-                                  ? 'XXXX'
-                                  : 'XXX'
+                              ? isAmex ? 'XXXX' : 'XXX'
                               : cvv,
                           maxLines: 1,
                           style: widget.textStyle ?? defaultTextStyle,
@@ -409,9 +233,7 @@ class _CreditCardWidgetState extends State<CreditCardWidget>
               alignment: Alignment.bottomRight,
               child: Padding(
                 padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
-                child: widget.cardType != null
-                    ? getCardTypeImage(widget.cardType)
-                    : getCardTypeIcon(widget.cardNumber),
+                child: widget.cardType != null ? getCardTypeImage(widget.cardType) : getCardTypeIcon(widget.cardNumber),
               ),
             ),
           ),
@@ -420,39 +242,96 @@ class _CreditCardWidgetState extends State<CreditCardWidget>
     );
   }
 
-  Widget _cardGesture({required Widget child}) {
-    bool isRightSwipe = true;
-    return widget.isSwipeGestureEnabled
-        ? GestureDetector(
-            onPanEnd: (_) {
-              isGestureUpdate = true;
-              if (isRightSwipe) {
-                _leftRotation();
-              } else {
-                _rightRotation();
-              }
-            },
-            onPanUpdate: (DragUpdateDetails details) {
-              // Swiping in right direction.
-              if (details.delta.dx > 0) {
-                isRightSwipe = true;
-              }
+  ///
+  /// Builds a front container containing
+  /// Card number, Exp. year and Card holder name
+  ///
+  Container buildFrontContainer(
+      double width,
+      double height,
+      BuildContext context,
+      Orientation orientation,
+      ) {
+    final TextStyle defaultTextStyle =
+    Theme.of(context).textTheme.headline6.merge(
+      TextStyle(
+        color: Colors.white,
+        fontFamily: 'halter',
+        fontSize: 16,
+        package: 'flutter_credit_card',
+      ),
+    );
 
-              // Swiping in left direction.
-              if (details.delta.dx < 0) {
-                isRightSwipe = false;
-              }
-            },
-            child: child,
-          )
-        : child;
+    final String number = widget.obscureCardNumber
+        ? widget.cardNumber
+        : widget.cardNumber;
+
+    return Container(
+      margin: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(8),
+        gradient: backgroundGradientColor,
+        boxShadow: <BoxShadow>[
+          BoxShadow(
+            color: Colors.grey,
+            blurRadius: 5,
+          ),
+        ],
+      ),
+      width: widget.width ?? width,
+      height: widget.height ?? (orientation == Orientation.portrait ? height / 4 : height / 2),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          Align(
+            alignment: Alignment.topRight,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16, right: 16, top: 8),
+              child: widget.cardType != null ? getCardTypeImage(widget.cardType) : getCardTypeIcon(widget.cardNumber),
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Text(
+                widget.cardNumber.isEmpty || widget.cardNumber == null
+                    ? 'XXXX XXXX XXXX XXXX'
+                    : number,
+                style: widget.textStyle ?? defaultTextStyle,
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 1,
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Text(
+                widget.expiryDate.isEmpty || widget.expiryDate == null ? widget.labelExpiredDate : widget.expiryDate,
+                style: widget.textStyle ?? defaultTextStyle,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 16, right: 16, bottom: 16),
+              child: Text(
+                widget.cardHolderName.isEmpty || widget.cardHolderName == null ? widget.labelCardHolder : widget.cardHolderName,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: widget.textStyle ?? defaultTextStyle,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   /// Credit Card prefix patterns as of March 2019
   /// A [List<String>] represents a range.
   /// i.e. ['51', '55'] represents the range of cards starting with '51' to those starting with '55'
   Map<CardType, Set<List<String>>> cardNumPatterns =
-      <CardType, Set<List<String>>>{
+  <CardType, Set<List<String>>>{
     CardType.visa: <List<String>>{
       <String>['4'],
     },
@@ -487,11 +366,10 @@ class _CreditCardWidgetState extends State<CreditCardWidget>
     }
 
     cardNumPatterns.forEach(
-      (CardType type, Set<List<String>> patterns) {
+          (CardType type, Set<List<String>> patterns) {
         for (List<String> patternRange in patterns) {
           // Remove any spaces
-          String ccPatternStr =
-              cardNumber.replaceAll(RegExp(r'\s+\b|\b\s'), '');
+          String ccPatternStr = cardNumber.replaceAll(RegExp(r'\s+\b|\b\s'), '');
           final int rangeLen = patternRange[0].length;
           // Trim the Credit Card number string to match the pattern prefix length
           if (rangeLen < cardNumber.length) {
@@ -505,8 +383,7 @@ class _CreditCardWidgetState extends State<CreditCardWidget>
             final int ccPrefixAsInt = int.parse(ccPatternStr);
             final int startPatternPrefixAsInt = int.parse(patternRange[0]);
             final int endPatternPrefixAsInt = int.parse(patternRange[1]);
-            if (ccPrefixAsInt >= startPatternPrefixAsInt &&
-                ccPrefixAsInt <= endPatternPrefixAsInt) {
+            if (ccPrefixAsInt >= startPatternPrefixAsInt && ccPrefixAsInt <= endPatternPrefixAsInt) {
               // Found a match
               cardType = type;
               break;
@@ -526,95 +403,101 @@ class _CreditCardWidgetState extends State<CreditCardWidget>
     return cardType;
   }
 
-  Widget getCardTypeImage(CardType? cardType) {
-    final List<CustomCardTypeIcon> customCardTypeIcon = getCustomCardTypeIcon(cardType!);
-    if(customCardTypeIcon.isNotEmpty){
-      return customCardTypeIcon.first.cardImage;
-    } else {
-      return Image.asset(
-        CardTypeIconAsset[cardType]!,
-        height: 48,
-        width: 48,
-        package: 'flutter_credit_card',
-      );
-    }
-  }
+  Widget getCardTypeImage(CardType cardType) => Image.asset(
+    CardTypeIconAsset[cardType],
+    height: 48,
+    width: 48,
+    package: 'flutter_credit_card',
+  );
 
-    // This method returns the icon for the visa card type if found
-    // else will return the empty container
+  // This method returns the icon for the visa card type if found
+  // else will return the empty container
   Widget getCardTypeIcon(String cardNumber) {
     Widget icon;
-    final CardType ccType = detectCCType(cardNumber);
-    final List<CustomCardTypeIcon> customCardTypeIcon = getCustomCardTypeIcon(ccType);
-    if (customCardTypeIcon.isNotEmpty) {
-      icon = customCardTypeIcon.first.cardImage;
-      isAmex = ccType == CardType.americanExpress;
-    } else {
-      switch (ccType) {
-        case CardType.visa:
-          icon = Image.asset(
-            CardTypeIconAsset[ccType]!,
-            height: 48,
-            width: 48,
-            package: 'flutter_credit_card',
-          );
-          isAmex = false;
-          break;
+    switch (detectCCType(cardNumber)) {
+      case CardType.visa:
+        icon = Image.asset(
+          'icons/visa.png',
+          height: 48,
+          width: 48,
+          package: 'flutter_credit_card',
+        );
+        isAmex = false;
+        break;
 
-        case CardType.americanExpress:
-          icon = Image.asset(
-            CardTypeIconAsset[ccType]!,
-            height: 48,
-            width: 48,
-            package: 'flutter_credit_card',
-          );
-          isAmex = true;
-          break;
+      case CardType.americanExpress:
+        icon = Image.asset(
+          'icons/amex.png',
+          height: 48,
+          width: 48,
+          package: 'flutter_credit_card',
+        );
+        isAmex = true;
+        break;
 
-        case CardType.mastercard:
-          icon = Image.asset(
-            CardTypeIconAsset[ccType]!,
-            height: 48,
-            width: 48,
-            package: 'flutter_credit_card',
-          );
-          isAmex = false;
-          break;
+      case CardType.mastercard:
+        icon = Image.asset(
+          'icons/mastercard.png',
+          height: 48,
+          width: 48,
+          package: 'flutter_credit_card',
+        );
+        isAmex = false;
+        break;
 
-        case CardType.discover:
-          icon = Image.asset(
-            CardTypeIconAsset[ccType]!,
-            height: 48,
-            width: 48,
-            package: 'flutter_credit_card',
-          );
-          isAmex = false;
-          break;
+      case CardType.discover:
+        icon = Image.asset(
+          'icons/discover.png',
+          height: 48,
+          width: 48,
+          package: 'flutter_credit_card',
+        );
+        isAmex = false;
+        break;
 
-        default:
-          icon = Container(
-            height: 48,
-            width: 48,
-          );
-          isAmex = false;
-          break;
-      }
+      default:
+        icon = Container(
+          height: 48,
+          width: 48,
+        );
+        isAmex = false;
+        break;
     }
 
     return icon;
   }
+}
 
-  List<CustomCardTypeIcon> getCustomCardTypeIcon(CardType currentCardType) =>
-      widget.customCardTypeIcons
-          .where((CustomCardTypeIcon element) =>
-              element.cardType == currentCardType)
-          .toList();
+class AnimationCard extends StatelessWidget {
+  const AnimationCard({
+    @required this.child,
+    @required this.animation,
+  });
+
+  final Widget child;
+  final Animation<double> animation;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: animation,
+      builder: (BuildContext context, Widget child) {
+        final Matrix4 transform = Matrix4.identity();
+        transform.setEntry(3, 2, 0.001);
+        transform.rotateY(animation.value);
+        return Transform(
+          transform: transform,
+          alignment: Alignment.center,
+          child: child,
+        );
+      },
+      child: child,
+    );
+  }
 }
 
 class MaskedTextController extends TextEditingController {
-  MaskedTextController(
-      {String? text, required this.mask, Map<String, RegExp>? translator})
-      : super(text: text) {
+  MaskedTextController({String text, this.mask, Map<String, RegExp> translator}) : super(text: text) {
     this.translator = translator ?? MaskedTextController.getDefaultTranslator();
 
     addListener(() {
@@ -632,7 +515,7 @@ class MaskedTextController extends TextEditingController {
 
   String mask;
 
-  late Map<String, RegExp> translator;
+  Map<String, RegExp> translator;
 
   Function afterChange = (String previous, String next) {};
   Function beforeChange = (String previous, String next) {
@@ -642,7 +525,7 @@ class MaskedTextController extends TextEditingController {
   String _lastUpdatedText = '';
 
   void updateText(String text) {
-    if (text.isNotEmpty) {
+    if (text != null) {
       this.text = _applyMask(mask, text);
     } else {
       this.text = '';
@@ -662,7 +545,7 @@ class MaskedTextController extends TextEditingController {
 
   void moveCursorToEnd() {
     final String text = _lastUpdatedText;
-    selection = TextSelection.fromPosition(TextPosition(offset: text.length));
+    selection = TextSelection.fromPosition(TextPosition(offset: (text ?? '').length));
   }
 
   @override
@@ -674,15 +557,10 @@ class MaskedTextController extends TextEditingController {
   }
 
   static Map<String, RegExp> getDefaultTranslator() {
-    return <String, RegExp>{
-      'A': RegExp(r'[A-Za-z]'),
-      '0': RegExp(r'[0-9]'),
-      '@': RegExp(r'[A-Za-z0-9]'),
-      '*': RegExp(r'.*')
-    };
+    return <String, RegExp>{'A': RegExp(r'[A-Za-z]'), '0': RegExp(r'[0-9]'), '@': RegExp(r'[A-Za-z0-9]'), '*': RegExp(r'.*')};
   }
 
-  String _applyMask(String? mask, String value) {
+  String _applyMask(String mask, String value) {
     String result = '';
 
     int maskCharIndex = 0;
@@ -690,7 +568,7 @@ class MaskedTextController extends TextEditingController {
 
     while (true) {
       // if mask is ended, break.
-      if (maskCharIndex == mask!.length) {
+      if (maskCharIndex == mask.length) {
         break;
       }
 
@@ -712,7 +590,7 @@ class MaskedTextController extends TextEditingController {
 
       // apply translator if match
       if (translator.containsKey(maskChar)) {
-        if (translator[maskChar]!.hasMatch(valueChar)) {
+        if (translator[maskChar].hasMatch(valueChar)) {
           result += valueChar;
           maskCharIndex += 1;
         }
@@ -738,3 +616,4 @@ enum CardType {
   americanExpress,
   discover,
 }
+
